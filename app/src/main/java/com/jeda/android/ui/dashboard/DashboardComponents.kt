@@ -3,6 +3,7 @@ package com.jeda.android.ui.dashboard
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -62,10 +63,12 @@ fun HeroFocusCard(
     val accentColor = if (isProtected) Color(0xFF10B981) else Color(0xFF64748B)
 
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .border(1.dp, if (isProtected) Color(0x3310B981) else Color(0x22FFFFFF), RoundedCornerShape(28.dp)),
         shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        colors = CardDefaults.cardColors(containerColor = if (isProtected) Color(0xFF0F172A) else Color(0xFF1E293B)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Column(modifier = Modifier.padding(24.dp)) {
             Row(
@@ -73,19 +76,25 @@ fun HeroFocusCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(100.dp))
+                        .background(accentColor.copy(alpha = 0.15f))
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
                     Box(
                         modifier = Modifier
-                            .size(12.dp)
+                            .size(8.dp)
                             .clip(CircleShape)
                             .background(accentColor)
                     )
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (isProtected) "SHIELD ACTIVE" else "SHIELD OFF",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.2.sp,
+                        text = if (isProtected) "SHIELD ACTIVE" else "SHIELD PAUSED",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 1.sp,
                         color = accentColor
                     )
                 }
@@ -97,34 +106,35 @@ fun HeroFocusCard(
                         checkedThumbColor = Color.White,
                         checkedTrackColor = Color(0xFF10B981),
                         uncheckedThumbColor = Color(0xFF94A3B8),
-                        uncheckedTrackColor = Color(0xFFE2E8F0)
+                        uncheckedTrackColor = Color(0xFF334155)
                     )
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = if (isProtected) "Mindful Focus" else "Protection Paused",
-                fontSize = 28.sp,
+                text = if (isProtected) "Active Habit Shield" else "Protection Inactive",
+                fontSize = 26.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isProtected) Color.White else MaterialTheme.colorScheme.onSurface
+                color = Color.White
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             val subtitle = when {
-                !isProtected -> "Tap switch to guard against doomscrolling and adult triggers."
-                state == MonitoringState.MONITORING && foregroundApp != null -> "Watching over your habits in $foregroundApp"
-                state == MonitoringState.INTERVENTION -> "Intervention in progress. Take a pause."
-                state == MonitoringState.COOLDOWN -> "In cooldown recovery mode."
-                else -> "Quietly active in the background."
+                !isProtected -> "Tap toggle to guard against adult relapse triggers and doomscroll loops."
+                state == MonitoringState.MONITORING && foregroundApp != null -> "Shielding habits inside $foregroundApp"
+                state == MonitoringState.INTERVENTION -> "Intervention active. Breathe and take a pause."
+                state == MonitoringState.COOLDOWN -> "In cooldown recovery period."
+                else -> "Silently active in the background."
             }
 
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (isProtected) Color(0xFF94A3B8) else MaterialTheme.colorScheme.onSurfaceVariant
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                color = Color(0xFF94A3B8)
             )
         }
     }

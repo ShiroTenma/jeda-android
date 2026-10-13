@@ -6,7 +6,6 @@ import android.content.Intent
 
 class StopMonitoringReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
-        MonitoringManager.controller.stop()
-        MonitoringNotificationManager(context).cancel()
+        MonitoringManager.stopMonitoring(context)
     }
 }

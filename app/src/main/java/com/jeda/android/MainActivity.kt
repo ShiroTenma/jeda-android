@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
@@ -46,12 +48,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.jeda.android.data.remote.BackendRepository
+import com.jeda.android.data.remote.BackendSettings
 import com.jeda.android.monitoring.MonitoringManager
 import com.jeda.android.monitoring.MonitoringState
+import com.jeda.android.ui.behavior.BehaviorDebugCard
+import com.jeda.android.ui.intervention.InterventionPreviewCard
+import com.jeda.android.ui.settings.BackendConnectionCard
 import com.jeda.android.ui.theme.JEDATheme
 import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
-import okhttp3.Request
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -96,17 +101,21 @@ fun MainScreen(modifier: Modifier = Modifier) {
     val controller = MonitoringManager.controller
     val monitoringState by controller.stateFlow.collectAsState()
     val monitoringEnabled by controller.enabledFlow.collectAsState()
+    val behaviorMetrics by MonitoringManager.aggregator.metricsFlow.collectAsState()
 
-    var backendStatus by remember { mutableStateOf("Not tested") }
-    var backendLoading by remember { mutableStateOf(false) }
     var accessibilityEnabled by remember {
         mutableStateOf(isAccessibilityServiceEnabled(context))
     }
+    var canDrawOverlays by remember { mutableStateOf(canDrawOverlays(context)) }
+    val backendConfig by BackendSettings.configFlow.collectAsState()
+    val backendStatus by BackendRepository.statusFlow.collectAsState()
+    val interventionState by MonitoringManager.coordinator.stateFlow.collectAsState()
 
     DisposableEffect(lifecycleOwner, context) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 accessibilityEnabled = isAccessibilityServiceEnabled(context)
+                canDrawOverlays = canDrawOverlays(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -120,45 +129,26 @@ fun MainScreen(modifier: Modifier = Modifier) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
             Text("JEDA", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
             Text(
-                "M1 - Monitoring Foundation",
+                "M3 - FDS Scoring & Soft Intervention",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.secondary
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Backend Connection", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        backendStatus,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (backendStatus.startsWith("Connected")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(
-                        onClick = {
-                            backendLoading = true
-                            scope.launch {
-                                backendStatus = testBackendConnection()
-                                backendLoading = false
-                            }
-                        },
-                        enabled = !backendLoading,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(if (backendLoading) "Testing..." else "Test Backend Connection")
-                    }
-                }
-            }
+            BackendConnectionCard(
+                config = backendConfig,
+                status = backendStatus,
+                canDrawOverlays = canDrawOverlays,
+                onSave = { BackendSettings.update(context, it) },
+                onTest = { BackendRepository.checkHealth(BackendSettings.config) },
+                onRequestOverlayPermission = { openOverlaySettings(context) }
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -201,7 +191,7 @@ fun MainScreen(modifier: Modifier = Modifier) {
                                 if (enabled && !accessibilityEnabled) {
                                     openAccessibilitySettings(context)
                                 } else if (enabled) {
-                                    controller.start()
+                                    MonitoringManager.startMonitoring(context)
                                 } else {
                                     MonitoringManager.stopMonitoring(context)
                                 }
@@ -211,7 +201,22 @@ fun MainScreen(modifier: Modifier = Modifier) {
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     StatusRow("Current State:", monitoringState.name, monitoringState == MonitoringState.MONITORING)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    StatusRow(
+                        "Soft interventions (24h):",
+                        MonitoringManager.interventions.softCount().toString(),
+                        true
+                    )
                 }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            BehaviorDebugCard(metrics = behaviorMetrics)
+
+            if (interventionState.active) {
+                Spacer(modifier = Modifier.height(16.dp))
+                InterventionPreviewCard(state = interventionState)
             }
         }
     }
@@ -234,19 +239,6 @@ private fun StatusRow(label: String, value: String, positive: Boolean) {
     }
 }
 
-suspend fun testBackendConnection(): String {
-    return try {
-        val response = OkHttpClient().newCall(
-            Request.Builder().url("http://jeda-backend:8000/health").build()
-        ).execute()
-        response.use {
-            if (it.isSuccessful) "Connected\n${it.body?.string().orEmpty()}" else "HTTP ${it.code}"
-        }
-    } catch (error: Exception) {
-        "Connection failed: ${error.message ?: "unknown error"}"
-    }
-}
-
 fun isAccessibilityServiceEnabled(context: Context): Boolean {
     val enabledServices = Settings.Secure.getString(
         context.contentResolver,
@@ -257,4 +249,16 @@ fun isAccessibilityServiceEnabled(context: Context): Boolean {
 
 fun openAccessibilitySettings(context: Context) {
     context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+}
+
+fun canDrawOverlays(context: Context): Boolean =
+    Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(context)
+
+fun openOverlaySettings(context: Context) {
+    context.startActivity(
+        Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            android.net.Uri.parse("package:${context.packageName}")
+        )
+    )
 }

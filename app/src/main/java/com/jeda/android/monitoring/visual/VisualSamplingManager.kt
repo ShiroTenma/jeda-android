@@ -63,10 +63,15 @@ object VisualSamplingManager {
             ).onSuccess { rrsResponse ->
                 setElevatedSampling(rrsResponse.level != "NORMAL")
                 if (rrsResponse.requestsHardIntervention) {
+                    val cognitiveMsg = com.jeda.android.data.remote.BackendRepository.getCognitiveMessage(
+                        riskLevel = rrsResponse.level,
+                        config = com.jeda.android.data.remote.BackendSettings.config
+                    )
                     _hardInterventionState.value = com.jeda.android.monitoring.intervention.HardInterventionState(
                         active = true,
                         remainingSeconds = rrsResponse.durationSeconds,
-                        rrs = rrsResponse.rrs
+                        rrs = rrsResponse.rrs,
+                        reason = cognitiveMsg
                     )
                 }
             }

@@ -26,7 +26,24 @@ interface JedaApi {
         @Part("soft_intervention_count") softInterventionCount: RequestBody,
         @Part("hour_of_day") hourOfDay: RequestBody
     ): RrsAnalysisResponse
+
+    @POST("api/cognitive-message")
+    suspend fun getCognitiveMessage(
+        @Body prompt: CognitivePromptRequest
+    ): CognitiveMessageResponse
 }
+
+data class CognitivePromptRequest(
+    @SerializedName("risk_level") val riskLevel: String,
+    @SerializedName("trigger") val trigger: String = "sustained_visual_risk",
+    @SerializedName("intervention_style") val interventionStyle: String = "reflective",
+    @SerializedName("max_sentences") val maxSentences: Int = 1
+)
+
+data class CognitiveMessageResponse(
+    @SerializedName("message") val message: String,
+    @SerializedName("source") val source: String
+)
 
 data class RrsAnalysisResponse(
     @SerializedName("visual_confidence") val visualConfidence: Double,

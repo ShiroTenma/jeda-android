@@ -88,6 +88,23 @@ object BackendRepository {
         }
     }
 
+    suspend fun getCognitiveMessage(
+        riskLevel: String,
+        config: BackendConfig
+    ): String = withContext(Dispatchers.IO) {
+        val fallback = when (riskLevel) {
+            "HIGH" -> "Take a breath and step back. Is this helping you right now?"
+            "ELEVATED" -> "Notice what you are looking for before you keep scrolling."
+            else -> "Stay mindful of your time."
+        }
+        if (!config.isUsable) return@withContext fallback
+
+        runCatching {
+            val req = CognitivePromptRequest(riskLevel = riskLevel)
+            BackendClient.api(config).getCognitiveMessage(req).message
+        }.getOrDefault(fallback)
+    }
+
     private fun Throwable.readableReason(): String = when (this) {
         is UnknownHostException -> "Cannot resolve the backend hostname"
         is ConnectException -> "Backend refused the connection"

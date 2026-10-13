@@ -60,8 +60,15 @@ import com.jeda.android.monitoring.MonitoringState
 import com.jeda.android.ui.dashboard.HeroFocusCard
 import com.jeda.android.ui.dashboard.StatusPill
 import com.jeda.android.ui.dashboard.WellbeingMetersCard
-import com.jeda.android.ui.intervention.InterventionPreviewCard
-import com.jeda.android.ui.settings.BackendConnectionCard
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import com.jeda.android.ui.dashboard.ShieldScreen
+import com.jeda.android.ui.navigation.Screen
+import com.jeda.android.ui.rules.RulesScreen
+import com.jeda.android.ui.settings.SettingsScreen
 import com.jeda.android.ui.theme.JEDATheme
 import kotlinx.coroutines.launch
 
@@ -116,10 +123,9 @@ fun MainScreen(modifier: Modifier = Modifier) {
     var canDrawOverlays by remember { mutableStateOf(canDrawOverlays(context)) }
     val backendConfig by BackendSettings.configFlow.collectAsState()
     val backendStatus by BackendRepository.statusFlow.collectAsState()
-    val interventionState by MonitoringManager.coordinator.stateFlow.collectAsState()
     val isVisualServiceRunning by VisualSamplingManager.isServiceRunning.collectAsState()
-    val visualFrameCount by VisualSamplingManager.frameCount.collectAsState()
-    val visualLastTimestamp by VisualSamplingManager.lastFrameTimestamp.collectAsState()
+
+    var currentScreen by remember { mutableStateOf<Screen>(Screen.Shield) }
 
     val mediaProjectionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -140,96 +146,65 @@ fun MainScreen(modifier: Modifier = Modifier) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    Surface(
+    Scaffold(
         modifier = modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(20.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        bottomBar = {
+            NavigationBar(
+                containerColor = Color(0xFF0F172A)
             ) {
-                Column {
-                    Text("JEDA", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                    Text("Mindful Focus & Protection", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                listOf(Screen.Shield, Screen.Rules, Screen.Settings).forEach { screen ->
+                    NavigationBarItem(
+                        selected = currentScreen == screen,
+                        onClick = { currentScreen = screen },
+                        icon = { Icon(screen.icon, contentDescription = screen.title) },
+                        label = { Text(screen.title) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = Color(0xFF10B981),
+                            selectedTextColor = Color(0xFF10B981),
+                            indicatorColor = Color(0x3310B981),
+                            unselectedIconColor = Color(0xFF64748B),
+                            unselectedTextColor = Color(0xFF64748B)
+                        )
+                    )
                 }
-                StatusPill(
-                    backendStatus = backendStatus,
-                    accessibilityOk = accessibilityEnabled,
-                    overlayOk = canDrawOverlays
-                )
             }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            HeroFocusCard(
-                isProtected = monitoringEnabled,
-                isVisualActive = isVisualServiceRunning,
-                state = monitoringState,
+        }
+    ) { innerPadding ->
+        when (currentScreen) {
+            Screen.Shield -> ShieldScreen(
+                context = context,
+                controller = controller,
+                monitoringEnabled = monitoringEnabled,
+                monitoringState = monitoringState,
                 foregroundApp = controller.foregroundPackageFlow.collectAsState().value,
-                onToggleShield = { enabled ->
-                    if (enabled) {
-                        if (!accessibilityEnabled) {
-                            openAccessibilitySettings(context)
-                        } else if (!canDrawOverlays) {
-                            openOverlaySettings(context)
-                        } else {
-                            MonitoringManager.startMonitoring(context)
-                        }
-                    } else {
-                        MonitoringManager.stopMonitoring(context)
+                isVisualServiceRunning = isVisualServiceRunning,
+                behaviorMetrics = behaviorMetrics,
+                backendStatus = backendStatus,
+                accessibilityEnabled = accessibilityEnabled,
+                canDrawOverlays = canDrawOverlays,
+                mediaProjectionLauncher = mediaProjectionLauncher,
+                onOpenAccessibility = { openAccessibilitySettings(context) },
+                onOpenOverlay = { openOverlaySettings(context) },
+                modifier = Modifier.padding(innerPadding)
+            )
+            Screen.Rules -> RulesScreen(
+                modifier = Modifier.padding(innerPadding)
+            )
+            Screen.Settings -> SettingsScreen(
+                accessibilityOk = accessibilityEnabled,
+                overlayOk = canDrawOverlays,
+                backendConfig = backendConfig,
+                backendStatus = backendStatus,
+                onOpenAccessibility = { openAccessibilitySettings(context) },
+                onOpenOverlay = { openOverlaySettings(context) },
+                onSaveConfig = { BackendSettings.update(context, it) },
+                onTestBackend = {
+                    scope.launch {
+                        BackendRepository.checkHealth(BackendSettings.config)
                     }
                 },
-                onToggleVisual = {
-                    if (!isVisualServiceRunning) {
-                        val projectionManager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                        mediaProjectionLauncher.launch(projectionManager.createScreenCaptureIntent())
-                    } else {
-                        VisualSamplingManager.stopService(context)
-                    }
-                }
+                modifier = Modifier.padding(innerPadding)
             )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            WellbeingMetersCard(
-                scrollCpm = behaviorMetrics.scrollEvents * 2,
-                sessionSec = behaviorMetrics.activeSocialSessionSeconds,
-                softCount = MonitoringManager.interventions.softCount()
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            var showSettings by remember { mutableStateOf(false) }
-            OutlinedButton(
-                onClick = { showSettings = !showSettings },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(if (showSettings) "Hide Server Connection Settings" else "Server Connection Settings")
-            }
-
-            if (showSettings) {
-                Spacer(modifier = Modifier.height(12.dp))
-                BackendConnectionCard(
-                    config = backendConfig,
-                    status = backendStatus,
-                    canDrawOverlays = canDrawOverlays,
-                    onSave = { BackendSettings.update(context, it) },
-                    onTest = { BackendRepository.checkHealth(BackendSettings.config) },
-                    onRequestOverlayPermission = { openOverlaySettings(context) }
-                )
-            }
-
-            if (interventionState.active) {
-                Spacer(modifier = Modifier.height(16.dp))
-                InterventionPreviewCard(state = interventionState)
-            }
         }
     }
 }

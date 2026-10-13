@@ -130,6 +130,8 @@ object MonitoringManager {
             isCooldown = isCooldown
         )
 
+        android.util.Log.d("JEDA_OVERLAY", "syncOverlay: isIntervention=$isIntervention, hardActive=${hardState.active}, remaining=${hardState.remainingSeconds}")
+
         if (isIntervention) {
             InterventionOverlay.show(
                 context = context,

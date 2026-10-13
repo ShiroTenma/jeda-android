@@ -57,7 +57,9 @@ import com.jeda.android.data.remote.BackendRepository
 import com.jeda.android.data.remote.BackendSettings
 import com.jeda.android.monitoring.MonitoringManager
 import com.jeda.android.monitoring.MonitoringState
-import com.jeda.android.ui.behavior.BehaviorDebugCard
+import com.jeda.android.ui.dashboard.HeroFocusCard
+import com.jeda.android.ui.dashboard.StatusPill
+import com.jeda.android.ui.dashboard.WellbeingMetersCard
 import com.jeda.android.ui.intervention.InterventionPreviewCard
 import com.jeda.android.ui.settings.BackendConnectionCard
 import com.jeda.android.ui.theme.JEDATheme
@@ -146,89 +148,52 @@ fun MainScreen(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp)
+                .padding(20.dp)
         ) {
-            Text("JEDA", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-            Text(
-                "M3 - FDS Scoring & Soft Intervention",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.secondary
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            BackendConnectionCard(
-                config = backendConfig,
-                status = backendStatus,
-                canDrawOverlays = canDrawOverlays,
-                onSave = { BackendSettings.update(context, it) },
-                onTest = { BackendRepository.checkHealth(BackendSettings.config) },
-                onRequestOverlayPermission = { openOverlaySettings(context) }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            ElevatedCard(
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Accessibility Service", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    StatusRow("Status:", if (accessibilityEnabled) "Enabled" else "Disabled", accessibilityEnabled)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedButton(
-                        onClick = { openAccessibilitySettings(context) },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Open Accessibility Settings")
-                    }
+                Column {
+                    Text("JEDA", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                    Text("Mindful Focus & Protection", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                StatusPill(
+                    backendStatus = backendStatus,
+                    accessibilityOk = accessibilityEnabled,
+                    overlayOk = canDrawOverlays
+                )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Monitoring Control", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Enable Monitoring", style = MaterialTheme.typography.bodyLarge)
-                        Switch(
-                            checked = monitoringEnabled,
-                            onCheckedChange = { enabled ->
-                                if (enabled && !accessibilityEnabled) {
-                                    openAccessibilitySettings(context)
-                                } else if (enabled) {
-                                    MonitoringManager.startMonitoring(context)
-                                } else {
-                                    MonitoringManager.stopMonitoring(context)
-                                }
-                            },
-                            colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary)
-                        )
+            HeroFocusCard(
+                isProtected = monitoringEnabled,
+                state = monitoringState,
+                foregroundApp = controller.foregroundPackageFlow.collectAsState().value,
+                onToggle = { enabled ->
+                    if (enabled) {
+                        if (!accessibilityEnabled) {
+                            openAccessibilitySettings(context)
+                        } else if (!canDrawOverlays) {
+                            openOverlaySettings(context)
+                        } else {
+                            MonitoringManager.startMonitoring(context)
+                        }
+                    } else {
+                        MonitoringManager.stopMonitoring(context)
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    StatusRow("Current State:", monitoringState.name, monitoringState == MonitoringState.MONITORING)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    StatusRow(
-                        "Soft interventions (24h):",
-                        MonitoringManager.interventions.softCount().toString(),
-                        true
-                    )
                 }
-            }
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            BehaviorDebugCard(metrics = behaviorMetrics)
+            WellbeingMetersCard(
+                scrollCpm = behaviorMetrics.scrollEvents * 2,
+                sessionSec = behaviorMetrics.activeSocialSessionSeconds,
+                softCount = MonitoringManager.interventions.softCount()
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -244,6 +209,28 @@ fun MainScreen(modifier: Modifier = Modifier) {
                     VisualSamplingManager.stopService(context)
                 }
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            var showSettings by remember { mutableStateOf(false) }
+            OutlinedButton(
+                onClick = { showSettings = !showSettings },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (showSettings) "Hide Server Connection Settings" else "Server Connection Settings")
+            }
+
+            if (showSettings) {
+                Spacer(modifier = Modifier.height(12.dp))
+                BackendConnectionCard(
+                    config = backendConfig,
+                    status = backendStatus,
+                    canDrawOverlays = canDrawOverlays,
+                    onSave = { BackendSettings.update(context, it) },
+                    onTest = { BackendRepository.checkHealth(BackendSettings.config) },
+                    onRequestOverlayPermission = { openOverlaySettings(context) }
+                )
+            }
 
             if (interventionState.active) {
                 Spacer(modifier = Modifier.height(16.dp))

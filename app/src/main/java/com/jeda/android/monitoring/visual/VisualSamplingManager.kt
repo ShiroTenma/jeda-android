@@ -75,11 +75,14 @@ object VisualSamplingManager {
                         riskLevel = rrsResponse.level,
                         config = com.jeda.android.data.remote.BackendSettings.config
                     )
+                    val durationSec = rrsResponse.durationSeconds
+                    val nowMs = System.currentTimeMillis()
                     _hardInterventionState.value = com.jeda.android.monitoring.intervention.HardInterventionState(
                         active = true,
-                        remainingSeconds = rrsResponse.durationSeconds,
+                        remainingSeconds = durationSec,
                         rrs = rrsResponse.rrs,
-                        reason = cognitiveMsg
+                        reason = cognitiveMsg,
+                        endsAtMillis = nowMs + durationSec * 1000L
                     )
                     com.jeda.android.monitoring.JedaAccessibilityService.sendHome()
                     MonitoringManager.triggerOverlaySync()
@@ -93,7 +96,7 @@ object VisualSamplingManager {
     fun onSecondElapsed() {
         val current = _hardInterventionState.value
         if (!current.active) return
-        val remaining = current.remainingSeconds - 1
+        val remaining = ((current.endsAtMillis - System.currentTimeMillis()) / 1000L).toInt()
         if (remaining <= 0) {
             _hardInterventionState.value = com.jeda.android.monitoring.intervention.HardInterventionState()
         } else {

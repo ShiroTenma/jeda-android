@@ -48,6 +48,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import android.media.projection.MediaProjectionManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.jeda.android.monitoring.visual.VisualSamplingManager
+import com.jeda.android.ui.visual.VisualSamplingCard
 import com.jeda.android.data.remote.BackendRepository
 import com.jeda.android.data.remote.BackendSettings
 import com.jeda.android.monitoring.MonitoringManager
@@ -110,6 +115,17 @@ fun MainScreen(modifier: Modifier = Modifier) {
     val backendConfig by BackendSettings.configFlow.collectAsState()
     val backendStatus by BackendRepository.statusFlow.collectAsState()
     val interventionState by MonitoringManager.coordinator.stateFlow.collectAsState()
+    val isVisualServiceRunning by VisualSamplingManager.isServiceRunning.collectAsState()
+    val visualFrameCount by VisualSamplingManager.frameCount.collectAsState()
+    val visualLastTimestamp by VisualSamplingManager.lastFrameTimestamp.collectAsState()
+
+    val mediaProjectionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK && result.data != null) {
+            VisualSamplingManager.startService(context, result.resultCode, result.data!!)
+        }
+    }
 
     DisposableEffect(lifecycleOwner, context) {
         val observer = LifecycleEventObserver { _, event ->
@@ -213,6 +229,21 @@ fun MainScreen(modifier: Modifier = Modifier) {
             Spacer(modifier = Modifier.height(16.dp))
 
             BehaviorDebugCard(metrics = behaviorMetrics)
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            VisualSamplingCard(
+                isServiceRunning = isVisualServiceRunning,
+                frameCount = visualFrameCount,
+                lastTimestamp = visualLastTimestamp,
+                onStartRequested = {
+                    val projectionManager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                    mediaProjectionLauncher.launch(projectionManager.createScreenCaptureIntent())
+                },
+                onStopRequested = {
+                    VisualSamplingManager.stopService(context)
+                }
+            )
 
             if (interventionState.active) {
                 Spacer(modifier = Modifier.height(16.dp))

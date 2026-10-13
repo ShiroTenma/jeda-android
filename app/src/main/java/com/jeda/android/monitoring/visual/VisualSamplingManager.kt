@@ -41,16 +41,22 @@ object VisualSamplingManager {
 
     private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default + kotlinx.coroutines.SupervisorJob())
 
+    private var rrsExposureStartMillis: Long? = null
+
     fun onFrameCaptured(jpegBytes: ByteArray) {
         _lastFrameTimestamp.value = System.currentTimeMillis()
         _frameCount.value += 1
 
-        val metrics = MonitoringManager.aggregator.metricsFlow.value
+        val now = System.currentTimeMillis()
+        if (rrsExposureStartMillis == null) {
+            rrsExposureStartMillis = now
+        }
+        val exposureSec = ((now - rrsExposureStartMillis!!) / 1000L).coerceAtLeast(10L).toFloat()
+
         val currentSessionId = MonitoringManager.aggregator.snapshot().sessionId
         val currentPackage = MonitoringManager.controller.foregroundPackageFlow.value ?: ""
         val softCount = MonitoringManager.interventions.softCount()
         val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-        val exposureSec = metrics.activeSocialSessionSeconds.toFloat()
 
         scope.launch {
             com.jeda.android.data.remote.BackendRepository.analyzeFrame(
@@ -95,6 +101,7 @@ object VisualSamplingManager {
 
     fun stopService(context: Context) {
         isEnabled.set(false)
+        rrsExposureStartMillis = null
         val intent = Intent(context, MediaProjectionService::class.java).apply {
             action = MediaProjectionService.ACTION_STOP
         }

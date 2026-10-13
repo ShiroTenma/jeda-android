@@ -8,6 +8,14 @@ import android.view.WindowManager
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.savedstate.SavedStateRegistry
+import androidx.savedstate.SavedStateRegistryController
+import androidx.savedstate.SavedStateRegistryOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.jeda.android.monitoring.intervention.SoftInterventionState
 import com.jeda.android.ui.theme.JEDATheme
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +30,27 @@ import kotlinx.coroutines.flow.StateFlow
 object InterventionOverlay {
     private var windowManager: WindowManager? = null
     private var composeView: ComposeView? = null
+    private var overlayLifecycleOwner: OverlayLifecycleOwner? = null
+
+    private class OverlayLifecycleOwner : LifecycleOwner, SavedStateRegistryOwner {
+        private val lifecycleRegistry = LifecycleRegistry(this)
+        private val savedStateRegistryController = SavedStateRegistryController.create(this)
+
+        init {
+            savedStateRegistryController.performRestore(null)
+            lifecycleRegistry.currentState = Lifecycle.State.RESUMED
+        }
+
+        override val lifecycle: Lifecycle
+            get() = lifecycleRegistry
+
+        override val savedStateRegistry: SavedStateRegistry
+            get() = savedStateRegistryController.savedStateRegistry
+
+        fun destroy() {
+            lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
+        }
+    }
 
     fun canDraw(context: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(context)
@@ -31,7 +60,10 @@ object InterventionOverlay {
         if (!canDraw(context)) return
 
         val manager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val lifecycleOwner = OverlayLifecycleOwner()
         val view = ComposeView(context).apply {
+            setViewTreeLifecycleOwner(lifecycleOwner)
+            setViewTreeSavedStateRegistryOwner(lifecycleOwner)
             setContent {
                 JEDATheme {
                     val current by state.collectAsState()
@@ -62,6 +94,8 @@ object InterventionOverlay {
     fun hide() {
         val view = composeView ?: return
         runCatching { windowManager?.removeViewImmediate(view) }
+        overlayLifecycleOwner?.destroy()
+        overlayLifecycleOwner = null
         composeView = null
         windowManager = null
     }

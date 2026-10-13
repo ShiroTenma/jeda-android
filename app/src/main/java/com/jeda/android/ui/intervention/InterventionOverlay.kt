@@ -5,6 +5,8 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.provider.Settings
 import android.view.WindowManager
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
@@ -16,16 +18,14 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.jeda.android.monitoring.intervention.HardInterventionState
 import com.jeda.android.monitoring.intervention.SoftInterventionState
 import com.jeda.android.ui.theme.JEDATheme
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Injects the intervention UI above the target app via WindowManager, so the pause
- * appears without an Activity launch (SRS section 4.3).
- *
- * Show is idempotent, and every WindowManager call is guarded: a failed overlay
- * must be recorded as a test failure, never crash the app.
+ * Injects the intervention UI above the target app via WindowManager.
+ * Supports both SoftIntervention (FDS) and HardIntervention (RRS).
  */
 object InterventionOverlay {
     private var windowManager: WindowManager? = null
@@ -55,7 +55,11 @@ object InterventionOverlay {
     fun canDraw(context: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(context)
 
-    fun show(context: Context, state: StateFlow<SoftInterventionState>) {
+    fun show(
+        context: Context,
+        softState: StateFlow<SoftInterventionState>,
+        hardState: StateFlow<HardInterventionState>? = null
+    ) {
         if (composeView != null) return
         if (!canDraw(context)) return
 
@@ -66,9 +70,12 @@ object InterventionOverlay {
             setViewTreeSavedStateRegistryOwner(lifecycleOwner)
             setContent {
                 JEDATheme {
-                    val current by state.collectAsState()
-                    if (current.active) {
-                        SoftInterventionScreen(current)
+                    val hard by hardState?.collectAsState() ?: remember { mutableStateOf(HardInterventionState()) }
+                    val soft by softState.collectAsState()
+                    if (hard.active) {
+                        HardInterventionScreen(hard)
+                    } else if (soft.active) {
+                        SoftInterventionScreen(soft)
                     }
                 }
             }

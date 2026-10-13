@@ -7,6 +7,7 @@ import com.jeda.android.monitoring.TargetAppPolicy
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
 object VisualSamplingManager {
@@ -35,10 +36,41 @@ object VisualSamplingManager {
         return TargetAppPolicy.isRrsScope(currentPackage)
     }
 
+    private val _hardInterventionState = MutableStateFlow(com.jeda.android.monitoring.intervention.HardInterventionState())
+    val hardInterventionState: StateFlow<com.jeda.android.monitoring.intervention.HardInterventionState> = _hardInterventionState.asStateFlow()
+
+    private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default + kotlinx.coroutines.SupervisorJob())
+
     fun onFrameCaptured(jpegBytes: ByteArray) {
         _lastFrameTimestamp.value = System.currentTimeMillis()
         _frameCount.value += 1
-        // Forwarding to M5/M6 visual inference pipeline goes here (in-memory only).
+
+        val metrics = MonitoringManager.aggregator.metricsFlow.value
+        val currentSessionId = MonitoringManager.aggregator.snapshot().sessionId
+        val currentPackage = MonitoringManager.controller.foregroundPackageFlow.value ?: ""
+        val softCount = MonitoringManager.interventions.softCount()
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        val exposureSec = metrics.activeSocialSessionSeconds.toFloat()
+
+        scope.launch {
+            com.jeda.android.data.remote.BackendRepository.analyzeFrame(
+                jpegBytes = jpegBytes,
+                sessionId = currentSessionId,
+                exposureSeconds = exposureSec,
+                softInterventionCount = softCount,
+                hourOfDay = hour,
+                config = com.jeda.android.data.remote.BackendSettings.config
+            ).onSuccess { rrsResponse ->
+                setElevatedSampling(rrsResponse.level != "NORMAL")
+                if (rrsResponse.requestsHardIntervention) {
+                    _hardInterventionState.value = com.jeda.android.monitoring.intervention.HardInterventionState(
+                        active = true,
+                        remainingSeconds = rrsResponse.durationSeconds,
+                        rrs = rrsResponse.rrs
+                    )
+                }
+            }
+        }
     }
 
     fun startService(context: Context, resultCode: Int, data: Intent) {

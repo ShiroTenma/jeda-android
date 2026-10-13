@@ -112,8 +112,15 @@ object MonitoringManager {
 
     private fun syncOverlay() {
         val context = appContext ?: return
-        if (coordinator.stateFlow.value.active) {
-            InterventionOverlay.show(context, coordinator.stateFlow)
+        val softState = coordinator.stateFlow.value
+        val hardState = com.jeda.android.monitoring.visual.VisualSamplingManager.hardInterventionState.value
+        
+        if (hardState.active || softState.active) {
+            InterventionOverlay.show(
+                context = context,
+                softState = coordinator.stateFlow,
+                hardState = com.jeda.android.monitoring.visual.VisualSamplingManager.hardInterventionState
+            )
         } else {
             InterventionOverlay.hide()
         }

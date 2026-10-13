@@ -10,6 +10,9 @@ import java.io.InterruptedIOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 
 sealed interface BackendStatus {
     data object Unknown : BackendStatus
@@ -58,6 +61,31 @@ object BackendRepository {
             )
         }
         runCatching { BackendClient.api(config).analyzeBehavior(snapshot) }
+    }
+
+    suspend fun analyzeFrame(
+        jpegBytes: ByteArray,
+        sessionId: String,
+        exposureSeconds: Float,
+        softInterventionCount: Int,
+        hourOfDay: Int,
+        config: BackendConfig
+    ): Result<RrsAnalysisResponse> = withContext(Dispatchers.IO) {
+        if (!config.isUsable) {
+            return@withContext Result.failure(
+                IllegalStateException("Backend address is incomplete")
+            )
+        }
+        runCatching {
+            val reqBody = jpegBytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
+            val part = MultipartBody.Part.createFormData("file", "frame.jpg", reqBody)
+            val sid = sessionId.toRequestBody("text/plain".toMediaTypeOrNull())
+            val exp = exposureSeconds.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            val soft = softInterventionCount.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            val hr = hourOfDay.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+
+            BackendClient.api(config).analyzeFrame(part, sid, exp, soft, hr)
+        }
     }
 
     private fun Throwable.readableReason(): String = when (this) {

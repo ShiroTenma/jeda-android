@@ -2,9 +2,13 @@ package com.jeda.android.data.remote
 
 import com.google.gson.annotations.SerializedName
 import com.jeda.android.monitoring.behavior.BehavioralSnapshot
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.POST
+import retrofit2.http.Part
 
 interface JedaApi {
     @GET("health")
@@ -12,6 +16,30 @@ interface JedaApi {
 
     @POST("api/analyze-behavior")
     suspend fun analyzeBehavior(@Body snapshot: BehavioralSnapshot): BehaviorAnalysisResponse
+
+    @Multipart
+    @POST("api/analyze-frame")
+    suspend fun analyzeFrame(
+        @Part file: MultipartBody.Part,
+        @Part("session_id") sessionId: RequestBody,
+        @Part("exposure_seconds") exposureSeconds: RequestBody,
+        @Part("soft_intervention_count") softInterventionCount: RequestBody,
+        @Part("hour_of_day") hourOfDay: RequestBody
+    ): RrsAnalysisResponse
+}
+
+data class RrsAnalysisResponse(
+    @SerializedName("visual_confidence") val visualConfidence: Double,
+    @SerializedName("p_avg") val pAvg: Double,
+    @SerializedName("dn") val dn: Double,
+    @SerializedName("ct") val ct: Double,
+    @SerializedName("rrs") val rrs: Double,
+    @SerializedName("level") val level: String,
+    @SerializedName("action") val action: String,
+    @SerializedName("duration_seconds") val durationSeconds: Int,
+    @SerializedName("sampling_interval_seconds") val samplingIntervalSeconds: Int
+) {
+    val requestsHardIntervention: Boolean get() = action == "HARD_INTERVENTION"
 }
 
 data class HealthResponse(

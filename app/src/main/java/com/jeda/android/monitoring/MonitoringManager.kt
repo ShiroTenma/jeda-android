@@ -111,6 +111,12 @@ object MonitoringManager {
         // stays stable and simply stops scoring until connectivity returns.
     }
 
+    fun triggerOverlaySync() {
+        scope.launch(Dispatchers.Main.immediate) {
+            syncOverlay()
+        }
+    }
+
     private fun syncOverlay() {
         val context = appContext ?: return
         val softState = coordinator.stateFlow.value

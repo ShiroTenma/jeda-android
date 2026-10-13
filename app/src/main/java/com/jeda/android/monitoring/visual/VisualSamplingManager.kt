@@ -1,6 +1,7 @@
 package com.jeda.android.monitoring.visual
 
 import android.content.Context
+import android.util.Log
 import android.content.Intent
 import com.jeda.android.monitoring.MonitoringManager
 import com.jeda.android.monitoring.TargetAppPolicy
@@ -67,6 +68,7 @@ object VisualSamplingManager {
                 hourOfDay = hour,
                 config = com.jeda.android.data.remote.BackendSettings.config
             ).onSuccess { rrsResponse ->
+                Log.d("JEDA_VISUAL", "RRS response: level=${rrsResponse.level}, rrs=${rrsResponse.rrs}, action=${rrsResponse.action}")
                 setElevatedSampling(rrsResponse.level != "NORMAL")
                 if (rrsResponse.requestsHardIntervention) {
                     val cognitiveMsg = com.jeda.android.data.remote.BackendRepository.getCognitiveMessage(
@@ -79,7 +81,10 @@ object VisualSamplingManager {
                         rrs = rrsResponse.rrs,
                         reason = cognitiveMsg
                     )
+                    MonitoringManager.triggerOverlaySync()
                 }
+            }.onFailure { err ->
+                Log.e("JEDA_VISUAL", "analyzeFrame network failed", err)
             }
         }
     }

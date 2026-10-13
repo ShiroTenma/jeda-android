@@ -4,6 +4,16 @@ import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
 
 class JedaAccessibilityService : AccessibilityService() {
+    override fun onCreate() {
+        super.onCreate()
+        instance = this
+    }
+
+    override fun onDestroy() {
+        instance = null
+        super.onDestroy()
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val packageName = event?.packageName?.toString() ?: return
         when (event.eventType) {
@@ -23,4 +33,13 @@ class JedaAccessibilityService : AccessibilityService() {
      * to stop would let an unrelated service silently end a monitoring session.
      */
     override fun onInterrupt() = Unit
+
+    companion object {
+        var instance: JedaAccessibilityService? = null
+            private set
+
+        fun sendHome(): Boolean {
+            return instance?.performGlobalAction(GLOBAL_ACTION_HOME) ?: false
+        }
+    }
 }

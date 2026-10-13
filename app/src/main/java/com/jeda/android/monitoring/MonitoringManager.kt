@@ -87,13 +87,14 @@ object MonitoringManager {
     private fun startHeartbeat() {
         if (heartbeatJob?.isActive == true) return
         heartbeatJob = scope.launch {
-            while (isActive) {
-                delay(HEARTBEAT_MILLIS)
-                coordinator.onSecondElapsed()
-                syncOverlay()
-                coordinator.onHeartbeat()?.let { submit(it) }
-            }
-        }
+     while (isActive) {
+         delay(HEARTBEAT_MILLIS)
+         coordinator.onSecondElapsed()
+         com.jeda.android.monitoring.visual.VisualSamplingManager.onSecondElapsed()
+         syncOverlay()
+         coordinator.onHeartbeat()?.let { submit(it) }
+     }
+ }
     }
 
     private fun stopHeartbeat() {

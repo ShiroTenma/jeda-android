@@ -25,7 +25,7 @@ fun HardInterventionScreen(state: HardInterventionState, modifier: Modifier = Mo
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xE6111827)), // Deep opaque dark background
+            .background(Color(0xFF0F172A)), // Fully opaque deep slate black (100% solid)
         contentAlignment = Alignment.Center
     ) {
         Column(

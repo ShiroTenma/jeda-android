@@ -81,11 +81,23 @@ object VisualSamplingManager {
                         rrs = rrsResponse.rrs,
                         reason = cognitiveMsg
                     )
+                    com.jeda.android.monitoring.JedaAccessibilityService.sendHome()
                     MonitoringManager.triggerOverlaySync()
                 }
             }.onFailure { err ->
                 Log.e("JEDA_VISUAL", "analyzeFrame network failed", err)
             }
+        }
+    }
+
+    fun onSecondElapsed() {
+        val current = _hardInterventionState.value
+        if (!current.active) return
+        val remaining = current.remainingSeconds - 1
+        if (remaining <= 0) {
+            _hardInterventionState.value = com.jeda.android.monitoring.intervention.HardInterventionState()
+        } else {
+            _hardInterventionState.value = current.copy(remainingSeconds = remaining)
         }
     }
 

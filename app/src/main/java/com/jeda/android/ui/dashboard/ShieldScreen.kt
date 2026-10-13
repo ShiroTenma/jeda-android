@@ -104,5 +104,9 @@ fun ShieldScreen(
             sessionSec = behaviorMetrics.activeSocialSessionSeconds,
             softCount = MonitoringManager.interventions.softCount()
         )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        MindfulAiCard(backendConfig = com.jeda.android.data.remote.BackendSettings.config)
     }
 }

@@ -70,6 +70,9 @@ class InterventionCoordinator(
         onResponse(response)
     }
 
+    val isCooldownActive: Boolean
+        get() = clock.nowMillis() < cooldownUntilMillis
+
     fun reset() {
         cooldownUntilMillis = 0L
         _state.value = SoftInterventionState()

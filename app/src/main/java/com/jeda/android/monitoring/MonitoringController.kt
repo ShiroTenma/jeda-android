@@ -35,15 +35,23 @@ class MonitoringController {
         _foregroundPackage.value = null
     }
 
-    fun onForegroundPackage(packageName: String): MonitoringState {
-        _foregroundPackage.value = packageName
-        _state.value = if (!_enabled.value) {
-            MonitoringState.IDLE
-        } else if (TargetAppPolicy.isTarget(packageName)) {
-            MonitoringState.MONITORING
-        } else {
-            MonitoringState.IDLE
+    fun updateMonitoringState(
+        isInterventionActive: Boolean,
+        isCooldown: Boolean
+    ): MonitoringState {
+        val currentPackage = _foregroundPackage.value
+        _state.value = when {
+            !_enabled.value -> MonitoringState.IDLE
+            isInterventionActive -> MonitoringState.INTERVENTION
+            isCooldown -> MonitoringState.COOLDOWN
+            currentPackage != null && TargetAppPolicy.isTarget(currentPackage) -> MonitoringState.MONITORING
+            else -> MonitoringState.IDLE
         }
         return _state.value
+    }
+
+    fun onForegroundPackage(packageName: String): MonitoringState {
+        _foregroundPackage.value = packageName
+        return updateMonitoringState(isInterventionActive = false, isCooldown = false)
     }
 }

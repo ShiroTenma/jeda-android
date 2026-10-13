@@ -75,6 +75,7 @@ object MonitoringManager {
         aggregator.stop()
         if (appContext != null) coordinator.reset()
         stopHeartbeat()
+        com.jeda.android.monitoring.visual.VisualSamplingManager.stopService(context)
         InterventionOverlay.hide()
         MonitoringNotificationManager(context.applicationContext).cancel()
     }
@@ -114,8 +115,15 @@ object MonitoringManager {
         val context = appContext ?: return
         val softState = coordinator.stateFlow.value
         val hardState = com.jeda.android.monitoring.visual.VisualSamplingManager.hardInterventionState.value
-        
-        if (hardState.active || softState.active) {
+        val isIntervention = hardState.active || softState.active
+        val isCooldown = coordinator.isCooldownActive
+
+        controller.updateMonitoringState(
+            isInterventionActive = isIntervention,
+            isCooldown = isCooldown
+        )
+
+        if (isIntervention) {
             InterventionOverlay.show(
                 context = context,
                 softState = coordinator.stateFlow,

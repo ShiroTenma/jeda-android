@@ -51,15 +51,13 @@ import com.jeda.android.monitoring.MonitoringState
 @Composable
 fun HeroFocusCard(
     isProtected: Boolean,
-    onToggle: (Boolean) -> Unit,
+    isVisualActive: Boolean,
+    onToggleShield: (Boolean) -> Unit,
+    onToggleVisual: () -> Unit,
     state: MonitoringState,
     foregroundApp: String?,
     modifier: Modifier = Modifier
 ) {
-    val containerColor by animateColorAsState(
-        if (isProtected) Color(0xFF0F172A) else MaterialTheme.colorScheme.surfaceVariant,
-        label = "hero_bg"
-    )
     val accentColor = if (isProtected) Color(0xFF10B981) else Color(0xFF64748B)
 
     Card(
@@ -101,7 +99,7 @@ fun HeroFocusCard(
 
                 Switch(
                     checked = isProtected,
-                    onCheckedChange = onToggle,
+                    onCheckedChange = onToggleShield,
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White,
                         checkedTrackColor = Color(0xFF10B981),
@@ -109,36 +107,76 @@ fun HeroFocusCard(
                         uncheckedTrackColor = Color(0xFF334155)
                     )
                 )
-            }
+                }
 
-            Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-            Text(
+                Text(
                 text = if (isProtected) "Active Habit Shield" else "Protection Inactive",
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
-            )
+                )
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-            val subtitle = when {
-                !isProtected -> "Tap toggle to guard against adult relapse triggers and doomscroll loops."
+                val subtitle = when {
+                !isProtected -> "One tap to guard against doomscrolling and adult relapse triggers."
                 state == MonitoringState.MONITORING && foregroundApp != null -> "Shielding habits inside $foregroundApp"
                 state == MonitoringState.INTERVENTION -> "Intervention active. Breathe and take a pause."
                 state == MonitoringState.COOLDOWN -> "In cooldown recovery period."
                 else -> "Silently active in the background."
-            }
+                }
 
-            Text(
+                Text(
                 text = subtitle,
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
                 color = Color(0xFF94A3B8)
-            )
-        }
-    }
-}
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFF1E293B))
+                    .clickable { onToggleVisual() }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+                ) {
+                Column {
+                    Text(
+                        text = "Visual AI Guard",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = if (isVisualActive) "Live on-device sampling" else "Tap to enable screen sampling",
+                        fontSize = 12.sp,
+                        color = if (isVisualActive) Color(0xFF10B981) else Color(0xFF64748B)
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isVisualActive) Color(0x3310B981) else Color(0x22FFFFFF))
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                ) {
+                    Text(
+                        text = if (isVisualActive) "ENABLED" else "ENABLE",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isVisualActive) Color(0xFF10B981) else Color(0xFF94A3B8)
+                    )
+                }
+                }
+                }
+                }
+                }
 
 @Composable
 fun WellbeingMetersCard(

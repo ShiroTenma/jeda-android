@@ -170,9 +170,10 @@ fun MainScreen(modifier: Modifier = Modifier) {
 
             HeroFocusCard(
                 isProtected = monitoringEnabled,
+                isVisualActive = isVisualServiceRunning,
                 state = monitoringState,
                 foregroundApp = controller.foregroundPackageFlow.collectAsState().value,
-                onToggle = { enabled ->
+                onToggleShield = { enabled ->
                     if (enabled) {
                         if (!accessibilityEnabled) {
                             openAccessibilitySettings(context)
@@ -184,6 +185,14 @@ fun MainScreen(modifier: Modifier = Modifier) {
                     } else {
                         MonitoringManager.stopMonitoring(context)
                     }
+                },
+                onToggleVisual = {
+                    if (!isVisualServiceRunning) {
+                        val projectionManager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                        mediaProjectionLauncher.launch(projectionManager.createScreenCaptureIntent())
+                    } else {
+                        VisualSamplingManager.stopService(context)
+                    }
                 }
             )
 
@@ -193,21 +202,6 @@ fun MainScreen(modifier: Modifier = Modifier) {
                 scrollCpm = behaviorMetrics.scrollEvents * 2,
                 sessionSec = behaviorMetrics.activeSocialSessionSeconds,
                 softCount = MonitoringManager.interventions.softCount()
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            VisualSamplingCard(
-                isServiceRunning = isVisualServiceRunning,
-                frameCount = visualFrameCount,
-                lastTimestamp = visualLastTimestamp,
-                onStartRequested = {
-                    val projectionManager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                    mediaProjectionLauncher.launch(projectionManager.createScreenCaptureIntent())
-                },
-                onStopRequested = {
-                    VisualSamplingManager.stopService(context)
-                }
             )
 
             Spacer(modifier = Modifier.height(16.dp))

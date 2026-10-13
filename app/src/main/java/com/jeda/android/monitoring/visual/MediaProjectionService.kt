@@ -56,9 +56,13 @@ class MediaProjectionService : Service() {
                 }
 
                 if (resultCode != 0 && resultData != null) {
-                    startForegroundWithNotification()
-                    initMediaProjection(resultCode, resultData)
-                    startSampling()
+                    try {
+                        startForegroundWithNotification()
+                        initMediaProjection(resultCode, resultData)
+                        startSampling()
+                    } catch (e: Exception) {
+                        stopSelf()
+                    }
                 } else {
                     stopSelf()
                 }
@@ -96,7 +100,14 @@ class MediaProjectionService : Service() {
     @SuppressLint("WrongConstant")
     private fun initMediaProjection(resultCode: Int, resultData: Intent) {
         val projectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        mediaProjection = projectionManager.getMediaProjection(resultCode, resultData)
+        val projection = projectionManager.getMediaProjection(resultCode, resultData)
+        mediaProjection = projection
+
+        projection.registerCallback(object : MediaProjection.Callback() {
+            override fun onStop() {
+                stopSampling()
+            }
+        }, null)
 
         val metrics = resources.displayMetrics
         val width = metrics.widthPixels
@@ -104,7 +115,7 @@ class MediaProjectionService : Service() {
         val density = metrics.densityDpi
 
         imageReader = ImageReader.newInstance(width, height, android.graphics.PixelFormat.RGBA_8888, 2)
-        virtualDisplay = mediaProjection?.createVirtualDisplay(
+        virtualDisplay = projection.createVirtualDisplay(
             "JedaVirtualDisplay",
             width,
             height,
